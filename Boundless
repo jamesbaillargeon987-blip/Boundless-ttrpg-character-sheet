@@ -1,0 +1,771 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  Skull, 
+  Brain, 
+  Ghost, 
+  Zap, 
+  Shield, 
+  Heart, 
+  Activity, 
+  Dices, 
+  Crosshair, 
+  Plus, 
+  Trash2, 
+  Info,
+  Wind,
+  Droplets,
+  Moon,
+  Box,
+  ScrollText,
+  Users,
+  Fingerprint,
+  Camera,
+  RefreshCw,
+  History,
+  X,
+  Layers,
+  Download,
+  Upload,
+  Save,
+  FileCode,
+  ChevronDown,
+  Backpack,
+  Sword,
+  Wrench,
+  User,
+  Coffee,
+  Flame
+} from 'lucide-react';
+
+const App = () => {
+  const apiKey = "";
+  const fileInputRef = useRef(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // --- Genre Definitions ---
+  const genres = {
+    "Modern": ["Noir", "Urban Fantasy", "Espionage", "Action Thriller", "Contemporary Horror"],
+    "Sci-Fi": ["Cyberpunk", "Space Opera", "Hard Sci-Fi", "Retro-Futurism", "Cosmic Horror"],
+    "Fantasy": ["High Fantasy", "Grimdark", "Steampunk", "Arcanepunk", "Dark Fantasy Horror"],
+    "Wasteland": ["Post-Apocalyptic", "Dustpunk", "Overgrown", "Mad Max Style", "Survival Horror"],
+    "Horror": ["Gothic", "Eldritch", "Slasher", "Psychological", "Folk Horror"]
+  };
+
+  const themeStyles = {
+    "Wasteland": {
+      border: "border-red-900",
+      borderL: "border-l-red-600",
+      text: "text-red-600",
+      accent: "text-red-500",
+      bg: "bg-red-900",
+      bgSoft: "bg-red-900/40",
+      hover: "hover:bg-red-800",
+      active: "bg-red-600",
+      btnText: "text-red-200"
+    },
+    "Fantasy": {
+      border: "border-amber-900",
+      borderL: "border-l-amber-600",
+      text: "text-amber-600",
+      accent: "text-amber-500",
+      bg: "bg-amber-900",
+      bgSoft: "bg-amber-900/40",
+      hover: "hover:bg-amber-800",
+      active: "bg-amber-600",
+      btnText: "text-amber-200"
+    },
+    "Sci-Fi": {
+      border: "border-cyan-900",
+      borderL: "border-l-cyan-600",
+      text: "text-cyan-600",
+      accent: "text-cyan-500",
+      bg: "bg-cyan-900",
+      bgSoft: "bg-cyan-900/40",
+      hover: "hover:bg-cyan-800",
+      active: "bg-cyan-600",
+      btnText: "text-cyan-200"
+    },
+    "Modern": {
+      border: "border-slate-800",
+      borderL: "border-l-slate-600",
+      text: "text-slate-400",
+      accent: "text-slate-300",
+      bg: "bg-slate-800",
+      bgSoft: "bg-slate-800/40",
+      hover: "hover:bg-slate-700",
+      active: "bg-slate-600",
+      btnText: "text-slate-200"
+    },
+    "Horror": {
+      border: "border-purple-900",
+      borderL: "border-l-purple-600",
+      text: "text-purple-600",
+      accent: "text-purple-500",
+      bg: "bg-purple-900",
+      bgSoft: "bg-purple-900/40",
+      hover: "hover:bg-purple-800",
+      active: "bg-purple-600",
+      btnText: "text-purple-200"
+    }
+  };
+
+  // --- Character State ---
+  const [character, setCharacter] = useState({
+    name: "New Hero",
+    genre: "Modern",
+    subgenre: "Contemporary Horror",
+    archetype: "Investigator",
+    age: "32",
+    gender: "",
+    adrenaline: 0,
+    integrityDamage: [0, 0, 0, 0],
+    resistanceDamage: [0, 0, 0, 0],
+    description: "Tired eyes, wearing a heavy trench coat and holding a flickering flashlight.",
+    player: "",
+    attributes: {
+      body: 30,
+      finesse: 30,
+      mind: 30,
+      soul: 30
+    },
+    skills: [
+      { id: 1, name: "Perception", category: "mind", level: 1 },
+      { id: 2, name: "Firearms", category: "finesse", level: 1 },
+    ],
+    items: [],
+    survival: {
+      food: 0,
+      water: 0,
+      rest: 0,
+      ammo: 0
+    },
+    wounds: "",
+    talents: "", 
+    connections: "",
+    background: {
+      origin: "", 
+      raised: "", 
+      event: "",  
+      drive: "",  
+      quote: "The shadows here aren't right.", 
+      trait: "Inquisitive", 
+      quirk: ""  
+    }
+  });
+
+  const [rollLog, setRollLog] = useState([]);
+  const [isRolling, setIsRolling] = useState(false);
+  const [showRollLog, setShowRollLog] = useState(false);
+  const [characterImage, setCharacterImage] = useState(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  const activeTheme = themeStyles[character.genre] || themeStyles["Modern"];
+
+  // --- Derived Calculations ---
+  const totals = useMemo(() => {
+    const { body, finesse, mind, soul } = character.attributes;
+    const mindFirstDigit = Math.floor(mind / 10);
+    const soulFirstDigit = Math.floor(soul / 10);
+
+    return {
+      totalPoints: (parseInt(body) || 0) + (parseInt(finesse) || 0) + (parseInt(mind) || 0) + (parseInt(soul) || 0),
+      bodyPips: Math.floor(body / 10),
+      mindPips: Math.floor(mind / 10),
+      sorcery: 10 + mindFirstDigit,
+      divine: 10 + soulFirstDigit,
+      skillLimits: {
+        body: Math.floor(body / 10),
+        finesse: Math.floor(finesse / 10),
+        mind: Math.floor(mind / 10),
+        soul: Math.floor(soul / 10)
+      }
+    };
+  }, [character.attributes]);
+
+  // --- Export Logic ---
+  const downloadFile = (content, fileName, contentType) => {
+    const a = document.createElement("a");
+    const file = new Blob([content], { type: contentType });
+    a.href = URL.createObjectURL(file);
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const exportJSON = () => {
+    const dataStr = JSON.stringify({ character, characterImage, version: "2.1" }, null, 2);
+    downloadFile(dataStr, `${character.name.replace(/\s+/g, '_')}_Boundless.json`, 'application/json');
+  };
+
+  const exportHTML = () => {
+    const renderExportPips = (total, damaged, color) => {
+      let pips = '<div style="display:flex; gap:4px; margin-bottom:10px;">';
+      for(let i=0; i<total; i++) {
+        const isFilled = i < (total - damaged);
+        pips += `<div style="height:12px; flex:1; border:1px solid #334155; border-radius:2px; background:${isFilled ? color : 'rgba(255,255,255,0.05)'};"></div>`;
+      }
+      pips += '</div>';
+      return pips;
+    };
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Boundless - ${character.name}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          body { background: #000; color: #cbd5e1; font-family: sans-serif; }
+          .stat-box { border: 2px solid #334155; padding: 1.5rem; border-radius: 0.75rem; background: #0f172a; margin-bottom: 1rem; }
+          .accent { color: #f87171; }
+          .header-strip { border-bottom: 4px solid #ef4444; margin-bottom: 2rem; padding-bottom: 1rem; }
+          .item-card { background: rgba(0,0,0,0.3); border: 1px solid #1e293b; padding: 0.75rem; border-radius: 0.5rem; }
+        </style>
+      </head>
+      <body class="p-8">
+        <div class="max-w-5xl mx-auto">
+          <div class="header-strip">
+            <h1 class="text-5xl font-black italic accent">BOUNDLESS: ${character.genre}</h1>
+            <p class="text-sm uppercase tracking-widest opacity-50 font-bold">${character.subgenre}</p>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="md:col-span-2 space-y-6">
+              <div class="stat-box">
+                <h2 class="text-xl font-black uppercase mb-4 accent">Profile</h2>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div><strong>Name:</strong> ${character.name}</div>
+                  <div><strong>Archetype:</strong> ${character.archetype}</div>
+                  <div><strong>Gender:</strong> ${character.gender}</div>
+                  <div><strong>Age:</strong> ${character.age}</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <h2 class="text-xl font-black uppercase mb-4 accent">Status Tracks</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+                  <div>
+                    <h3 class="text-red-400 font-bold uppercase text-xs mb-2">Physical Integrity</h3>
+                    <div style="font-size: 9px; opacity: 0.6;">HEALTHY (Peak)</div>
+                    ${renderExportPips(totals.bodyPips, character.integrityDamage[0], '#22c55e')}
+                    <div style="font-size: 9px; opacity: 0.6;">INJURED (-10% Body)</div>
+                    ${renderExportPips(totals.bodyPips, character.integrityDamage[1], '#eab308')}
+                    <div style="font-size: 9px; opacity: 0.6;">WOUNDED (-20% Body)</div>
+                    ${renderExportPips(totals.bodyPips, character.integrityDamage[2], '#f97316')}
+                    <div style="font-size: 9px; opacity: 0.6;">BROKEN (-30% All)</div>
+                    ${renderExportPips(totals.bodyPips, character.integrityDamage[3], '#ef4444')}
+                  </div>
+                  <div>
+                    <h3 class="text-blue-400 font-bold uppercase text-xs mb-2">Mental Resistance</h3>
+                    <div style="font-size: 9px; opacity: 0.6;">CALM (Rational)</div>
+                    ${renderExportPips(totals.mindPips, character.resistanceDamage[0], '#3b82f6')}
+                    <div style="font-size: 9px; opacity: 0.6;">DISTRESSED (-10% Mind)</div>
+                    ${renderExportPips(totals.mindPips, character.resistanceDamage[1], '#06b6d4')}
+                    <div style="font-size: 9px; opacity: 0.6;">SHAKEN (Save Required)</div>
+                    ${renderExportPips(totals.mindPips, character.resistanceDamage[2], '#6366f1')}
+                    <div style="font-size: 9px; opacity: 0.6;">SHATTERED (Incap)</div>
+                    ${renderExportPips(totals.mindPips, character.resistanceDamage[3], '#a855f7')}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              ${characterImage ? `<img src="${characterImage}" class="w-full rounded-lg border-2 border-slate-700 shadow-2xl" />` : ''}
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    downloadFile(htmlContent, `${character.name.replace(/\s+/g, '_')}_Snapshot.html`, 'text/html');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const importCharacter = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        if (importedData.character) {
+          setCharacter(importedData.character);
+          setCharacterImage(importedData.characterImage || null);
+        }
+      } catch (err) { console.error("Import failed", err); }
+    };
+    reader.readAsText(file);
+  };
+
+  // --- AI Image Generation ---
+  const generatePortrait = async () => {
+    setIsGeneratingImage(true);
+    const genderTerm = character.gender ? `${character.gender}` : "a person";
+    const subgenreEffect = character.subgenre.toLowerCase().includes("horror") ? "with unsettling atmospheric shadows, gritty textures, and a dark mood" : "with cinematic lighting and detailed atmosphere";
+    
+    const promptText = `
+      A hyper-detailed, cinematic character portrait of ${character.name}, ${genderTerm} ${character.archetype}, aged around ${character.age}.
+      The setting is ${character.genre} (${character.subgenre}), ${subgenreEffect}.
+      Appearance details: ${character.description}.
+      Personality/Trait: ${character.background.trait}. 
+      Physical Quirk: ${character.background.quirk}.
+      Art Style: High-fidelity character concept art, realistic textures, atmospheric background relative to the ${character.genre} genre. 
+      Professional digital art, sharp focus, volumetric lighting.
+    `.trim();
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instances: [{ prompt: promptText }], parameters: { sampleCount: 1 } })
+      });
+      if (!response.ok) throw new Error('Generation failed');
+      const result = await response.json();
+      setCharacterImage(`data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`);
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setIsGeneratingImage(false); 
+    }
+  };
+
+  // --- Rolling Logic ---
+  const performRoll = (label, target) => {
+    setIsRolling(true);
+    setTimeout(() => {
+      const roll = Math.floor(Math.random() * 100) + 1;
+      const diff = target - roll;
+      let successes = 0;
+      let failures = 0;
+      let resultText = "";
+
+      if (roll <= target) {
+        successes = Math.floor(Math.abs(diff) / 10);
+        resultText = successes >= 1 ? `${successes} Successes` : "Mixed Result";
+        if (roll === 1) resultText = "CRITICAL SUCCESS!";
+      } else {
+        failures = Math.floor(Math.abs(diff) / 10);
+        const failuresToGained = Math.max(1, failures);
+        resultText = `${failuresToGained} Failures`;
+        if (roll === 100) resultText = "CATASTROPHIC FAILURE!";
+        
+        setCharacter(prev => ({
+          ...prev,
+          adrenaline: Math.min(prev.adrenaline + failuresToGained, 10)
+        }));
+      }
+
+      setRollLog(prev => [{ 
+        id: Date.now(), 
+        label, 
+        roll, 
+        target, 
+        result: resultText, 
+        successes, 
+        failures 
+      }, ...prev].slice(0, 10));
+      setIsRolling(false);
+      setShowRollLog(true);
+    }, 600);
+  };
+
+  const updateAttr = (attrKey, val) => {
+    setCharacter(p => ({ ...p, attributes: { ...p.attributes, [attrKey]: parseInt(val) || 0 } }));
+  };
+
+  const StatBox = ({ label, value, attrKey, icon: Icon, theme }) => (
+    <div className={`bg-slate-900 border-2 ${theme.border} p-4 rounded-lg flex flex-col items-center relative overflow-hidden transition-colors`}>
+      <Icon className={`absolute -right-2 -bottom-2 w-16 h-16 opacity-10 ${theme.text}`} />
+      <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">{label}</span>
+      <input 
+        type="number" 
+        value={value} 
+        onChange={(e) => updateAttr(attrKey, e.target.value)}
+        className="bg-transparent text-3xl font-black text-white text-center w-full outline-none focus:text-blue-400"
+      />
+      <div className="flex gap-2 mt-2 w-full z-10">
+        <button 
+          onClick={() => performRoll(label, value)}
+          className={`flex-1 text-[10px] font-bold py-1 px-2 rounded ${theme.bgSoft} ${theme.btnText} border border-slate-700 hover:bg-slate-800 transition-colors uppercase`}
+        >
+          Check
+        </button>
+        <button 
+          onClick={() => performRoll(`${label} Init`, value)}
+          className="flex-1 text-[10px] font-bold py-1 px-2 rounded bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition-colors uppercase"
+        >
+          Init
+        </button>
+      </div>
+      <div className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-tighter">
+        {totals.skillLimits[attrKey]} Skill Slots
+      </div>
+    </div>
+  );
+
+  const HealthTier = ({ name, pips, colorClass, tierIndex, type, penalty }) => {
+    const damage = type === 'integrity' ? character.integrityDamage[tierIndex] : character.resistanceDamage[tierIndex];
+    
+    const handlePipClick = (pipIndex) => {
+      const newDamage = pips - pipIndex;
+      setCharacter(prev => {
+        const field = type === 'integrity' ? 'integrityDamage' : 'resistanceDamage';
+        const newArr = [...prev[field]];
+        newArr[tierIndex] = (newArr[tierIndex] === newDamage) ? newDamage - 1 : newDamage;
+        return { ...prev, [field]: newArr };
+      });
+    };
+
+    return (
+      <div className="mb-4">
+        <div className="flex justify-between items-end mb-1">
+          <div className="flex items-baseline gap-2">
+            <span className={`text-sm font-black uppercase text-${colorClass}-500`}>{name}</span>
+            <span className="text-[9px] text-slate-500 uppercase font-bold">{penalty}</span>
+          </div>
+          <span className="text-[10px] text-slate-400 italic">
+            {damage > 0 ? `${damage} Dmg` : 'Secure'}
+          </span>
+        </div>
+        <div className="flex gap-1">
+          {Array.from({ length: Math.max(0, pips) }).map((_, i) => {
+            const isFilled = i < (pips - damage);
+            return (
+              <div 
+                key={i} 
+                className={`h-8 w-full border-2 border-slate-800 rounded cursor-pointer flex items-center justify-center transition-all 
+                  ${isFilled ? `bg-${colorClass}-600 border-${colorClass}-900` : 'bg-transparent'}
+                  hover:scale-[1.02] active:scale-95`} 
+                onClick={() => handlePipClick(i)}
+              >
+                <div className={`w-1 h-1 rounded-full ${isFilled ? 'bg-white/30' : 'bg-slate-700'}`}></div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const updateSkill = (id, field, val) => {
+    setCharacter(prev => ({
+      ...prev,
+      skills: prev.skills.map(s => s.id === id ? { ...s, [field]: val } : s)
+    }));
+  };
+
+  const updateItem = (id, field, val) => {
+    setCharacter(p => ({
+      ...p,
+      items: p.items.map(item => item.id === id ? { ...item, [field]: val } : item)
+    }));
+  };
+
+  const removeItem = (id) => {
+    setCharacter(p => ({ ...p, items: p.items.filter(item => item.id !== id) }));
+  };
+
+  const addItem = () => {
+    setCharacter(p => ({ ...p, items: [...p.items, { id: Date.now(), name: "New Item", category: "Utility", notes: "" }] }));
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-slate-200 p-4 md:p-8 font-sans selection:bg-red-900 overflow-x-hidden transition-all">
+      <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={importCharacter} />
+      
+      <div className="max-w-6xl mx-auto space-y-6 relative text-slate-200">
+        
+        {/* Roll Log Overlay */}
+        {showRollLog && (
+          <div className="fixed bottom-4 right-4 z-50 w-72 bg-slate-900 border-2 border-slate-700 rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[400px]">
+            <div className="bg-slate-800 p-2 flex justify-between items-center border-b border-slate-700">
+              <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-200">
+                <History size={12}/> Log
+              </span>
+              <button onClick={() => setShowRollLog(false)} className="text-slate-500 hover:text-white"><X size={16}/></button>
+            </div>
+            <div className="p-4 space-y-3 overflow-y-auto">
+              {rollLog.map(log => (
+                <div key={log.id} className="p-2 rounded border border-slate-800 bg-black/40">
+                  <div className="flex justify-between text-[9px] font-bold text-slate-500"><span>{log.label}</span><span>{log.target}%</span></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-black">{log.roll}</span>
+                    <span className={`text-[9px] px-1 font-bold ${log.roll <= log.target ? 'text-green-500' : 'text-red-500'}`}>
+                      {log.result}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Header */}
+        <header className={`grid grid-cols-1 md:grid-cols-4 gap-4 border-b-4 ${activeTheme.border} pb-6`}>
+          <div className="md:col-span-1 flex flex-col justify-center items-center md:items-start">
+            <h1 className={`text-5xl font-black tracking-tighter ${activeTheme.text} italic`}>BOUNDLESS</h1>
+            
+            <div className="flex gap-2 mt-2">
+              <select value={character.genre} onChange={(e) => setCharacter({...character, genre: e.target.value, subgenre: genres[e.target.value][0]})} className="bg-slate-950 text-[10px] font-black uppercase border border-slate-800 px-2 py-1 rounded">
+                {Object.keys(genres).map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <select value={character.subgenre} onChange={(e) => setCharacter({...character, subgenre: e.target.value})} className="bg-slate-950 text-[10px] font-black uppercase border border-slate-800 px-2 py-1 rounded">
+                {genres[character.genre].map(sg => <option key={sg} value={sg}>{sg}</option>)}
+              </select>
+            </div>
+
+            <div className="relative mt-4">
+              <button onClick={() => setShowExportMenu(!showExportMenu)} className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ${activeTheme.bgSoft} text-white px-3 py-1.5 rounded border border-slate-700 transition-all`}>
+                <Download size={14}/> Export <ChevronDown size={12}/>
+              </button>
+              {showExportMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded shadow-xl z-50 overflow-hidden">
+                  <button onClick={() => { exportJSON(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2 text-[10px] font-bold uppercase hover:bg-slate-800 border-b border-slate-800 flex items-center gap-2 text-slate-200"><Save size={14}/> Save JSON</button>
+                  <button onClick={() => { exportHTML(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2 text-[10px] font-bold uppercase hover:bg-slate-800 border-b border-slate-800 flex items-center gap-2 text-slate-200"><FileCode size={14}/> Export HTML</button>
+                  <button onClick={() => { handleImportClick(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2 text-[10px] font-bold uppercase hover:bg-slate-800 flex items-center gap-2 text-blue-400"><Upload size={14}/> Load Character</button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div><label className="block text-[10px] uppercase font-bold text-slate-500">Name</label><input value={character.name} onChange={e => setCharacter({...character, name: e.target.value})} className="bg-slate-900 border-b border-slate-700 w-full p-1 font-bold outline-none text-slate-200" /></div>
+            <div><label className="block text-[10px] uppercase font-bold text-slate-500">Archetype</label><input value={character.archetype} onChange={e => setCharacter({...character, archetype: e.target.value})} className="bg-slate-900 border-b border-slate-700 w-full p-1 font-bold outline-none text-slate-200" /></div>
+            <div><label className="block text-[10px] uppercase font-bold text-slate-500">Gender</label><input value={character.gender} onChange={e => setCharacter({...character, gender: e.target.value})} className="bg-slate-900 border-b border-slate-700 w-full p-1 font-bold outline-none text-slate-200" /></div>
+            <div><label className="block text-[10px] uppercase font-bold text-slate-500">Age</label><input value={character.age} onChange={e => setCharacter({...character, age: e.target.value})} className="bg-slate-900 border-b border-slate-700 w-full p-1 font-bold outline-none text-slate-200" /></div>
+            <div><label className="block text-[10px] uppercase font-bold text-slate-500">Player</label><input value={character.player} onChange={e => setCharacter({...character, player: e.target.value})} className="bg-slate-900 border-b border-slate-700 w-full p-1 font-bold outline-none text-slate-200" /></div>
+          </div>
+        </header>
+
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-4 space-y-8">
+            <section>
+              <div className="flex justify-between items-center mb-4 text-slate-200">
+                <h2 className={`text-lg font-black uppercase ${activeTheme.accent} flex items-center gap-2`}><Activity size={20}/> Attributes</h2>
+                <div className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 ${totals.totalPoints > 120 ? 'text-red-500' : 'text-green-500'}`}>
+                  <span>{totals.totalPoints} / 120%</span>
+                  {totals.totalPoints > 120 && <Skull size={14} className="animate-pulse" />}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <StatBox label="Body" value={character.attributes.body} attrKey="body" icon={Shield} theme={activeTheme} />
+                <StatBox label="Finesse" value={character.attributes.finesse} attrKey="finesse" icon={Crosshair} theme={activeTheme} />
+                <StatBox label="Mind" value={character.attributes.mind} attrKey="mind" icon={Brain} theme={activeTheme} />
+                <StatBox label="Soul" value={character.attributes.soul} attrKey="soul" icon={Ghost} theme={activeTheme} />
+              </div>
+            </section>
+
+            <section className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+              <h2 className="text-lg font-black uppercase mb-4 flex items-center gap-2 text-slate-200"><Zap size={20} className="text-yellow-500"/> Skills</h2>
+              {['body', 'finesse', 'mind', 'soul'].map(cat => (
+                <div key={cat} className="mb-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 mb-2">
+                    <span className="text-[10px] uppercase font-black text-slate-400">{cat}</span>
+                    <button onClick={() => setCharacter(p => ({ ...p, skills: [...p.skills, { id: Date.now(), name: "New Skill", category: cat, level: 1 }] }))} className="text-green-500"><Plus size={14}/></button>
+                  </div>
+                  {character.skills.filter(s => s.category === cat).map(skill => (
+                    <div key={skill.id} className="flex items-center gap-2 mb-1 group text-slate-200">
+                      <input value={skill.name} onChange={(e) => updateSkill(skill.id, 'name', e.target.value)} className="bg-transparent flex-1 text-sm outline-none" />
+                      <select value={skill.level} onChange={(e) => updateSkill(skill.id, 'level', parseInt(e.target.value))} className="bg-slate-900 text-[10px]">
+                        <option value={0}>Untrained</option>
+                        <option value={1}>Trained</option>
+                        <option value={2}>Expert</option>
+                      </select>
+                      <button onClick={() => setCharacter(p => ({ ...p, skills: p.skills.filter(s => s.id !== skill.id) }))} className="text-red-900 opacity-0 group-hover:opacity-100"><Trash2 size={12}/></button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </section>
+          </div>
+
+          <div className="lg:col-span-5 space-y-8">
+            <section className={`bg-slate-900/40 p-6 rounded-xl border-l-4 ${activeTheme.borderL}`}>
+              <h2 className={`text-xl font-black uppercase mb-6 ${activeTheme.text} italic flex items-center gap-2`}><Heart size={24}/> Physical Integrity</h2>
+              <HealthTier name="Healthy" pips={totals.bodyPips} colorClass="green" tierIndex={0} type="integrity" penalty="Peak" />
+              <HealthTier name="Injured" pips={totals.bodyPips} colorClass="yellow" tierIndex={1} type="integrity" penalty="-10% Body" />
+              <HealthTier name="Wounded" pips={totals.bodyPips} colorClass="orange" tierIndex={2} type="integrity" penalty="-20% Body" />
+              <HealthTier name="Broken" pips={totals.bodyPips} colorClass="red" tierIndex={3} type="integrity" penalty="-30% All" />
+            </section>
+
+            <section className={`bg-slate-900/40 p-6 rounded-xl border-l-4 border-blue-600 transition-colors`}>
+              <h2 className={`text-xl font-black uppercase mb-6 text-blue-600 italic flex items-center gap-2`}>
+                <Brain size={24}/> Mental Resistance
+              </h2>
+              <HealthTier name="Calm" pips={totals.mindPips} colorClass="blue" tierIndex={0} type="resistance" penalty="Rational" />
+              <HealthTier name="Distressed" pips={totals.mindPips} colorClass="cyan" tierIndex={1} type="resistance" penalty="-10% Mind" />
+              <HealthTier name="Shaken" pips={totals.mindPips} colorClass="indigo" tierIndex={2} type="resistance" penalty="Save Reqd" />
+              <HealthTier name="Shattered" pips={totals.mindPips} colorClass="purple" tierIndex={3} type="resistance" penalty="Incap" />
+            </section>
+
+            <section className={`bg-slate-900/60 p-4 rounded-xl border-2 border-yellow-600/30 relative overflow-hidden`}>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-md font-black uppercase flex items-center gap-2 text-yellow-500">
+                  <Flame size={18} className={character.adrenaline >= 10 ? "animate-pulse" : ""}/> 
+                  Adrenaline
+                </h3>
+                <span className="text-[10px] font-black uppercase text-yellow-600/70">
+                  {character.adrenaline >= 10 ? "Heroic Action Ready!" : "Degree of Failure = Adrenaline"}
+                </span>
+              </div>
+              <div className="flex gap-1.5 h-6">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`flex-1 rounded-sm border border-yellow-900/50 transition-all duration-500 cursor-pointer
+                      ${i < character.adrenaline ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" : "bg-black/40 hover:bg-yellow-900/20"}
+                    `}
+                    onClick={() => setCharacter(p => ({ 
+                      ...p, 
+                      adrenaline: p.adrenaline === i + 1 ? i : i + 1 
+                    }))}
+                  />
+                ))}
+              </div>
+              {character.adrenaline >= 10 && (
+                <button 
+                  onClick={() => setCharacter(p => ({ ...p, adrenaline: 0 }))}
+                  className="mt-3 w-full py-1.5 bg-yellow-600 hover:bg-yellow-500 text-black text-[10px] font-black uppercase rounded shadow-lg transition-colors"
+                >
+                  Spend Heroic Inspiration
+                </button>
+              )}
+            </section>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-900 p-4 rounded border border-blue-900 text-center">
+                <label className="text-[10px] uppercase font-black text-blue-400">Sorcery Points (10+Mind)</label>
+                <div className="text-2xl font-black text-slate-200">{totals.sorcery}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded border border-purple-900 text-center">
+                <label className="text-[10px] uppercase font-black text-purple-400">Divine Points (10+Soul)</label>
+                <div className="text-2xl font-black text-slate-200">{totals.divine}</div>
+              </div>
+            </div>
+
+            <section className="bg-slate-900/50 p-6 rounded-lg border border-slate-800">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-black uppercase flex items-center gap-2 text-slate-300"><Backpack size={20}/> Equipment</h3>
+                <button onClick={addItem} className="text-green-500 hover:text-green-400"><Plus size={18}/></button>
+              </div>
+              <div className="space-y-3">
+                {character.items.map(item => (
+                  <div key={item.id} className="group bg-black/40 p-2 rounded border border-slate-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <select 
+                        value={item.category} 
+                        onChange={(e) => updateItem(item.id, 'category', e.target.value)}
+                        className="bg-slate-900 text-[9px] font-black uppercase tracking-widest px-1 py-0.5 rounded outline-none border border-slate-700 text-slate-200"
+                      >
+                        <option>Utility</option>
+                        <option>Weapon</option>
+                        <option>Armor</option>
+                        <option>Personal</option>
+                        <option>Key</option>
+                      </select>
+                      <input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} className="bg-transparent flex-1 text-sm font-black outline-none text-slate-200" />
+                      <button onClick={() => removeItem(item.id)} className="text-red-900 opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
+                    </div>
+                    <textarea value={item.notes} onChange={(e) => updateItem(item.id, 'notes', e.target.value)} className="w-full bg-transparent text-[11px] outline-none h-10 resize-none opacity-60 text-slate-200" placeholder="Notes..." />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="bg-slate-900 p-4 rounded border border-yellow-900">
+              <h3 className="text-sm font-black uppercase text-yellow-500 mb-2 flex items-center gap-2"><Zap size={18}/> Talents</h3>
+              <textarea className="w-full h-32 bg-black/50 p-2 text-sm border border-slate-800 outline-none rounded text-slate-200" value={character.talents} onChange={e => setCharacter({...character, talents: e.target.value})} />
+            </section>
+          </div>
+
+          <div className="lg:col-span-3 space-y-6">
+            <section className="bg-black border-2 border-slate-800 rounded-lg overflow-hidden relative group h-[400px] flex flex-col">
+              {characterImage ? <img src={characterImage} alt="Portrait" className="w-full h-full object-cover" /> : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4"><Camera size={48} className="text-slate-700" /></div>
+              )}
+              {isGeneratingImage && <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20"><RefreshCw className="animate-spin text-white" /></div>}
+              <div className="p-3 bg-slate-900 border-t border-slate-800">
+                <button onClick={generatePortrait} className={`w-full py-2 ${activeTheme.bg} text-white text-xs font-black uppercase`}>Generate Image</button>
+              </div>
+            </section>
+
+            <section className="bg-slate-900/80 p-4 rounded border border-orange-900">
+              <h3 className="text-xs font-black uppercase text-orange-500 mb-4 flex items-center gap-2"><Box size={16}/> Supplies</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 bg-black/40 p-2 rounded">
+                  <div className="flex flex-col items-center w-8">
+                    <Wind size={16} className="text-slate-400"/>
+                    <span className="text-[7px] font-black uppercase">Food</span>
+                  </div>
+                  <input type="number" value={character.survival.food} onChange={e => setCharacter(p => ({ ...p, survival: { ...p.survival, food: parseInt(e.target.value) || 0 } }))} className="bg-transparent flex-1 text-sm font-bold outline-none text-slate-200" />
+                </div>
+                <div className="flex items-center gap-3 bg-black/40 p-2 rounded">
+                  <div className="flex flex-col items-center w-8">
+                    <Droplets size={16} className="text-blue-400"/>
+                    <span className="text-[7px] font-black uppercase">Water</span>
+                  </div>
+                  <input type="number" value={character.survival.water} onChange={e => setCharacter(p => ({ ...p, survival: { ...p.survival, water: parseInt(e.target.value) || 0 } }))} className="bg-transparent flex-1 text-sm font-bold outline-none text-slate-200" />
+                </div>
+                <div className="flex items-center gap-3 bg-black/40 p-2 rounded">
+                  <div className="flex flex-col items-center w-8">
+                    <Moon size={16} className="text-purple-400"/>
+                    <span className="text-[7px] font-black uppercase">Rest</span>
+                  </div>
+                  <input type="number" value={character.survival.rest} onChange={e => setCharacter(p => ({ ...p, survival: { ...p.survival, rest: parseInt(e.target.value) || 0 } }))} className="bg-transparent flex-1 text-sm font-bold outline-none text-slate-200" />
+                </div>
+                <div className="flex items-center gap-3 bg-black/40 p-2 rounded">
+                  <div className="flex flex-col items-center w-8">
+                    <Crosshair size={16} className="text-red-400"/>
+                    <span className="text-[7px] font-black uppercase">Ammo</span>
+                  </div>
+                  <input type="number" value={character.survival.ammo} onChange={e => setCharacter(p => ({ ...p, survival: { ...p.survival, ammo: parseInt(e.target.value) || 0 } }))} className="bg-transparent flex-1 text-sm font-bold outline-none text-slate-200" />
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-slate-900/30 p-4 rounded space-y-3 border border-slate-800">
+              <h3 className="text-xs font-black uppercase text-slate-500 border-b border-slate-800 pb-1 flex items-center gap-2"><Fingerprint size={14}/> Identity</h3>
+              {['trait', 'quirk', 'quote'].map(key => (
+                <div key={key}>
+                  <label className="block text-[9px] uppercase font-bold text-slate-600 text-slate-400 uppercase">{key}</label>
+                  <input value={character.background[key]} className="bg-transparent border-b border-slate-800 w-full text-xs py-1 outline-none text-slate-200" onChange={e => setCharacter({...character, background: {...character.background, [key]: e.target.value}})} />
+                </div>
+              ))}
+            </section>
+          </div>
+        </main>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t-2 border-slate-800 pt-8">
+          <section className="bg-slate-900/20 p-6 rounded-lg border border-slate-800">
+            <h2 className="text-xl font-black uppercase flex items-center gap-2 mb-6 text-slate-400 italic"><ScrollText size={24}/> Narrative</h2>
+            <div className="space-y-4">
+              <div key="visual-prompt">
+                <label className="block text-[10px] uppercase font-black text-slate-500 mb-1">Visual Prompt / Description</label>
+                <textarea value={character.description} onChange={e => setCharacter({...character, description: e.target.value})} className="w-full bg-slate-950/50 p-2 text-sm border border-slate-800 rounded h-16 outline-none text-slate-200" placeholder="Eyes, clothing, gear, specific physical appearance..." />
+              </div>
+              {[ { label: "Origin", key: "origin" }, { label: "Defining Event", key: "event" }, { label: "Motivation", key: "drive" }].map(item => (
+                <div key={item.key}>
+                  <label className="block text-[10px] uppercase font-black text-slate-500 mb-1">{item.label}</label>
+                  <textarea value={character.background[item.key]} className="w-full bg-slate-950/50 p-2 text-sm border border-slate-800 rounded h-20 outline-none text-slate-200" onChange={e => setCharacter({...character, background: {...character.background, [item.key]: e.target.value}})} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-slate-900/20 p-6 rounded-lg border border-slate-800">
+            <h2 className="text-xl font-black uppercase flex items-center gap-2 mb-6 text-slate-400 italic"><Users size={24}/> Connections</h2>
+            <textarea className="w-full h-full min-h-[300px] bg-slate-950/50 p-4 text-sm border border-slate-800 rounded outline-none text-slate-200" value={character.connections} onChange={e => setCharacter({...character, connections: e.target.value})} />
+          </section>
+        </div>
+
+        <footer className="text-center pt-8 text-slate-700 text-[10px] uppercase font-black tracking-widest">
+          Boundless System • {character.genre} • {character.subgenre}
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
